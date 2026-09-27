@@ -115,7 +115,9 @@
             </el-button>
           </div>
           <el-table :data="reportResult.errorList" stripe max-height="250" size="small">
-            <el-table-column prop="dataCode" label="数据编号" width="120" />
+            <el-table-column prop="medicalNo" label="医保编号" width="130">
+              <template #default="{ row }">{{ row.medicalNo || row.dataCode || '-' }}</template>
+            </el-table-column>
             <el-table-column prop="name" label="姓名" width="100" />
             <el-table-column prop="errorMsg" label="错误原因" />
           </el-table>

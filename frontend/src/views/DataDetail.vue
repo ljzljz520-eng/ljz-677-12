@@ -87,9 +87,12 @@
       </div>
 
       <el-table v-loading="loading" :data="dataList" stripe style="width: 100%">
-        <el-table-column prop="dataCode" label="数据编号" width="140" />
+        <el-table-column prop="medicalNo" label="医保编号" width="140" />
         <el-table-column prop="name" label="姓名" width="100" />
-        <el-table-column prop="idCard" label="身份证号" width="180">
+        <el-table-column prop="itemCode" label="项目编码" width="110" />
+        <el-table-column prop="orgCode" label="机构编码" width="110" />
+        <el-table-column prop="visitDate" label="就诊日期" width="115" />
+        <el-table-column prop="idCard" label="身份证号" width="170">
           <template #default="{ row }">
             {{ maskIdCard(row.idCard) }}
           </template>
@@ -104,7 +107,6 @@
             <span class="font-medium">{{ formatAmount(row.amount) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="address" label="地址" min-width="200" show-overflow-tooltip />
         <el-table-column prop="reportStatus" label="上报状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getReportStatusType(row.reportStatus)" size="small">
@@ -155,7 +157,9 @@
         <div v-if="reportResult.errorList && reportResult.errorList.length > 0">
           <h4 class="font-medium text-gray-700 mb-3">上报失败数据</h4>
           <el-table :data="reportResult.errorList" stripe max-height="250" size="small">
-            <el-table-column prop="dataCode" label="数据编号" width="120" />
+            <el-table-column prop="medicalNo" label="医保编号" width="130">
+              <template #default="{ row }">{{ row.medicalNo || row.dataCode || '-' }}</template>
+            </el-table-column>
             <el-table-column prop="name" label="姓名" width="100" />
             <el-table-column prop="errorMsg" label="错误原因" />
           </el-table>

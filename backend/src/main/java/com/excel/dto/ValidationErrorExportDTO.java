@@ -4,8 +4,11 @@ import com.alibaba.excel.annotation.ExcelProperty;
 import com.alibaba.excel.annotation.write.style.ColumnWidth;
 import lombok.Data;
 
+/**
+ * 导入前校验错误数据导出DTO（含行号，便于用户定位修正）
+ */
 @Data
-public class ExcelDataDTO {
+public class ValidationErrorExportDTO {
 
     @ExcelProperty(value = "医保编号", index = 0)
     @ColumnWidth(20)
@@ -43,13 +46,11 @@ public class ExcelDataDTO {
     @ColumnWidth(25)
     private String remark;
 
-    /**
-     * 行号，用于错误定位
-     */
+    @ExcelProperty(value = "行号", index = 9)
+    @ColumnWidth(8)
     private Integer rowIndex;
 
-    /**
-     * 错误信息
-     */
+    @ExcelProperty(value = "错误原因", index = 10)
+    @ColumnWidth(40)
     private String errorMsg;
 }

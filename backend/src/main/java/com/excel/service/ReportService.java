@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.excel.dto.ReportResultDTO;
 import com.excel.entity.ExcelData;
 import com.excel.mapper.ExcelDataMapper;
+import com.excel.utils.ValidationUtils;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +56,40 @@ public class ReportService {
                     .build();
         }
 
+        // ========== 上送前再次校验，校验不通过则禁止上送 ==========
+        List<ExcelData> invalidList = new ArrayList<>();
+        for (ExcelData data : pendingList) {
+            if (ValidationUtils.validateEntity(data).hasErrors()) {
+                invalidList.add(data);
+            }
+        }
+        if (!invalidList.isEmpty()) {
+            String message = String.format("存在%d条数据校验不通过，已禁止上送。请修正数据后重新导入",
+                    invalidList.size());
+            logger.warn("批次{}存在{}条校验不通过的数据，已禁止上送", batchNo, invalidList.size());
+
+            List<ReportResultDTO.ReportErrorItem> errorList = new ArrayList<>();
+            for (ExcelData data : invalidList) {
+                String errorMsg = ValidationUtils.validateEntity(data).getErrorMsg();
+                errorList.add(ReportResultDTO.ReportErrorItem.builder()
+                        .id(data.getId())
+                        .medicalNo(data.getMedicalNo())
+                        .name(data.getName())
+                        .errorMsg(errorMsg)
+                        .build());
+            }
+
+            return ReportResultDTO.builder()
+                    .batchNo(batchNo)
+                    .totalCount(pendingList.size())
+                    .successCount(0)
+                    .failCount(invalidList.size())
+                    .status("validation_failed")
+                    .message(message)
+                    .errorList(errorList)
+                    .build();
+        }
+
         int totalCount = pendingList.size();
         int successCount = 0;
         int failCount = 0;
@@ -91,7 +126,7 @@ public class ReportService {
                     failCount++;
                     errorList.add(ReportResultDTO.ReportErrorItem.builder()
                             .id(data.getId())
-                            .dataCode(data.getDataCode())
+                            .medicalNo(data.getMedicalNo())
                             .name(data.getName())
                             .errorMsg(errorMsg)
                             .build());
@@ -108,7 +143,7 @@ public class ReportService {
                 );
                 errorList.add(ReportResultDTO.ReportErrorItem.builder()
                         .id(data.getId())
-                        .dataCode(data.getDataCode())
+                        .medicalNo(data.getMedicalNo())
                         .name(data.getName())
                         .errorMsg(errorMsg)
                         .build());

@@ -35,7 +35,12 @@ public class ImportResultDTO {
     private List<ExcelDataDTO> errorList;
 
     /**
-     * 导入状态：processing, completed, failed
+     * 校验缓存ID，校验未通过时用于下载完整错误数据
+     */
+    private String validationId;
+
+    /**
+     * 导入状态：validation_failed, completed_with_errors, completed
      */
     private String status;
 

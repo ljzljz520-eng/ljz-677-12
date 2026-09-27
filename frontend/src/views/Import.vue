@@ -3,7 +3,7 @@
     <!-- 页面标题 -->
     <div class="card">
       <h1 class="text-2xl font-bold text-gray-800 mb-2">数据导入</h1>
-      <p class="text-gray-500">上传Excel文件，批量导入数据到系统</p>
+      <p class="text-gray-500">上传Excel文件，先进行字段校验，校验通过后再导入系统</p>
     </div>
 
     <!-- 上传区域 -->
@@ -64,12 +64,15 @@
       </div>
 
       <!-- 上传按钮 -->
-      <div class="mt-6 flex justify-end">
+      <div class="mt-6 flex justify-end space-x-3">
+        <el-button size="large" :loading="validating" :disabled="!selectedFile" @click="handleValidate">
+          {{ validating ? '校验中...' : '字段校验' }}
+        </el-button>
         <el-button
           type="primary"
           size="large"
           :loading="uploading"
-          :disabled="!selectedFile"
+          :disabled="!canImport"
           @click="handleUpload"
         >
           <svg v-if="!uploading" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,11 +82,96 @@
           {{ uploading ? '导入中...' : '开始导入' }}
         </el-button>
       </div>
+      <p class="text-xs text-gray-400 mt-2 text-right">
+        导入前会自动校验，必填或格式不通过的整批取消导入，不会进入上送环节
+      </p>
 
       <!-- 上传进度 -->
       <div v-if="uploading" class="mt-4">
         <el-progress :percentage="uploadProgress" :status="uploadProgress === 100 ? 'success' : ''" />
         <p class="text-sm text-gray-500 mt-2 text-center">正在导入数据，请稍候...</p>
+      </div>
+    </div>
+
+    <!-- 校验结果 -->
+    <div v-if="validationResult" class="card">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center">
+          <div :class="[
+            'w-10 h-10 rounded-full flex items-center justify-center mr-3',
+            validationResult.passed ? 'bg-green-100' : 'bg-red-100'
+          ]">
+            <svg v-if="validationResult.passed" class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <svg v-else class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-800">导入前字段校验</h3>
+            <p class="text-gray-500 text-sm">{{ validationResult.message }}</p>
+          </div>
+        </div>
+        <el-button
+          v-if="validationResult.validationId"
+          type="primary"
+          size="small"
+          @click="downloadValidationErrors"
+        >
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          下载错误行
+        </el-button>
+      </div>
+
+      <!-- 统计数据 -->
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-blue-50 rounded-lg p-4 text-center">
+          <p class="text-2xl font-bold text-blue-600">{{ validationResult.totalCount }}</p>
+          <p class="text-gray-500 text-sm">总记录数</p>
+        </div>
+        <div class="bg-green-50 rounded-lg p-4 text-center">
+          <p class="text-2xl font-bold text-green-600">{{ validationResult.validCount }}</p>
+          <p class="text-gray-500 text-sm">校验通过</p>
+        </div>
+        <div class="bg-red-50 rounded-lg p-4 text-center">
+          <p class="text-2xl font-bold text-red-600">{{ validationResult.errorCount }}</p>
+          <p class="text-gray-500 text-sm">校验失败</p>
+        </div>
+      </div>
+
+      <!-- 错误列表 -->
+      <div v-if="validationResult.errorList && validationResult.errorList.length > 0">
+        <h4 class="font-medium text-gray-700 mb-3">错误数据详情（前{{ validationResult.errorList.length }}条）</h4>
+        <el-table :data="validationResult.errorList" stripe max-height="320" size="small">
+          <el-table-column prop="rowIndex" label="行号" width="70" />
+          <el-table-column prop="medicalNo" label="医保编号" width="120">
+            <template #default="{ row }">{{ row.medicalNo || '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="name" label="姓名" width="90">
+            <template #default="{ row }">{{ row.name || '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="itemCode" label="项目编码" width="100">
+            <template #default="{ row }">{{ row.itemCode || '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="amount" label="金额" width="100">
+            <template #default="{ row }">{{ row.amount || '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="visitDate" label="就诊日期" width="110">
+            <template #default="{ row }">{{ row.visitDate || '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="orgCode" label="机构编码" width="100">
+            <template #default="{ row }">{{ row.orgCode || '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="errorMsg" label="错误原因" min-width="200" show-overflow-tooltip />
+        </el-table>
+        <p v-if="validationResult.errorListTruncated" class="text-xs text-gray-400 mt-2">
+          错误行较多，仅展示前100条，请点击"下载错误行"获取完整列表，修正后重新上传。
+        </p>
       </div>
     </div>
 
@@ -124,17 +212,6 @@
         </div>
       </div>
 
-      <!-- 错误列表 -->
-      <div v-if="importResult.errorList && importResult.errorList.length > 0">
-        <h4 class="font-medium text-gray-700 mb-3">错误数据详情</h4>
-        <el-table :data="importResult.errorList" stripe max-height="300">
-          <el-table-column prop="rowIndex" label="行号" width="80" />
-          <el-table-column prop="dataCode" label="数据编号" width="120" />
-          <el-table-column prop="name" label="姓名" width="100" />
-          <el-table-column prop="errorMsg" label="错误原因" />
-        </el-table>
-      </div>
-
       <!-- 操作按钮 -->
       <div class="mt-6 flex justify-end space-x-3">
         <el-button @click="resetImport">继续导入</el-button>
@@ -148,19 +225,19 @@
       <div class="space-y-3 text-gray-600">
         <div class="flex items-start">
           <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">1</span>
-          <p>下载导入模板，按照模板格式填写数据</p>
+          <p>下载导入模板，按模板填写：医保编号、姓名、项目编码、金额、就诊日期、机构编码为必填项</p>
         </div>
         <div class="flex items-start">
           <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">2</span>
-          <p>上传填写好的Excel文件，系统将自动解析并验证数据</p>
+          <p>上传Excel后点击"字段校验"，系统检查必填项及金额、日期格式，并列出错误行</p>
         </div>
         <div class="flex items-start">
           <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">3</span>
-          <p>导入完成后，可在"导入记录"中查看详情并上报数据到国家平台</p>
+          <p>校验不通过可下载错误行，修正后重新上传；存在错误行时无法导入，也不会进入上送环节</p>
         </div>
         <div class="flex items-start">
           <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">4</span>
-          <p>支持最多5万条数据导入，系统采用流式解析，内存占用低</p>
+          <p>校验通过后点击"开始导入"，导入完成可在"导入记录"中查看详情并上送数据到国家平台</p>
         </div>
       </div>
     </div>
@@ -168,7 +245,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { excelApi } from '@/api'
@@ -179,9 +256,16 @@ const userStore = useUserStore()
 
 const uploadRef = ref(null)
 const selectedFile = ref(null)
+const validating = ref(false)
 const uploading = ref(false)
 const uploadProgress = ref(0)
+const validationResult = ref(null)
 const importResult = ref(null)
+
+// 仅当文件已选且字段校验通过时才允许导入
+const canImport = computed(() =>
+  !!selectedFile.value && !!validationResult.value && validationResult.value.passed === true
+)
 
 const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 B'
@@ -193,6 +277,9 @@ const formatFileSize = (bytes) => {
 
 const handleFileChange = (file) => {
   selectedFile.value = file.raw
+  // 重新选择文件后重置校验/导入结果，避免沿用上一个文件的校验状态
+  validationResult.value = null
+  importResult.value = null
 }
 
 const handleExceed = () => {
@@ -217,12 +304,44 @@ const beforeUpload = (file) => {
 
 const removeFile = () => {
   selectedFile.value = null
+  validationResult.value = null
+  importResult.value = null
   uploadRef.value?.clearFiles()
 }
 
+// 第一步：导入前字段校验
+const handleValidate = async () => {
+  if (!selectedFile.value) {
+    ElMessage.warning('请先选择文件')
+    return
+  }
+
+  validating.value = true
+  importResult.value = null
+
+  try {
+    const res = await excelApi.validate(selectedFile.value)
+    validationResult.value = res.data
+    if (res.data.passed) {
+      ElMessage.success(res.data.message || '校验通过')
+    } else {
+      ElMessage.error(res.data.message || '校验未通过')
+    }
+  } catch (error) {
+    // 错误已在拦截器中处理
+  } finally {
+    validating.value = false
+  }
+}
+
+// 第二步：正式导入（后端会再次校验，校验不过整批取消）
 const handleUpload = async () => {
   if (!selectedFile.value) {
     ElMessage.warning('请先选择文件')
+    return
+  }
+  if (!validationResult.value || !validationResult.value.passed) {
+    ElMessage.warning('请先通过字段校验后再导入')
     return
   }
 
@@ -238,6 +357,23 @@ const handleUpload = async () => {
     })
 
     uploadProgress.value = 100
+
+    // 后端校验关卡：校验未通过时整批取消，展示错误并允许下载
+    if (res.data.status === 'validation_failed') {
+      validationResult.value = {
+        passed: false,
+        totalCount: res.data.totalCount,
+        validCount: res.data.totalCount - res.data.failCount,
+        errorCount: res.data.failCount,
+        errorList: res.data.errorList,
+        errorListTruncated: res.data.errorList && res.data.errorList.length >= 100,
+        validationId: res.data.validationId,
+        message: res.data.message
+      }
+      ElMessage.error(res.data.message || '校验未通过，已取消导入')
+      return
+    }
+
     importResult.value = res.data
     ElMessage.success(res.message)
   } catch (error) {
@@ -253,9 +389,21 @@ const downloadTemplate = () => {
   window.open(`${url}?token=${token}`, '_blank')
 }
 
+// 下载校验错误行（完整列表）
+const downloadValidationErrors = () => {
+  if (!validationResult.value?.validationId) {
+    ElMessage.warning('错误数据已过期，请重新校验文件')
+    return
+  }
+  const token = userStore.token
+  const url = excelApi.downloadValidationErrors(validationResult.value.validationId)
+  window.open(`${url}?token=${token}`, '_blank')
+}
+
 const resetImport = () => {
   selectedFile.value = null
   uploadRef.value?.clearFiles()
+  validationResult.value = null
   importResult.value = null
   uploadProgress.value = 0
 }

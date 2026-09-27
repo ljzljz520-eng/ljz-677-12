@@ -58,6 +58,17 @@ export const authApi = {
 }
 
 export const excelApi = {
+  validate: (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return request.post('/excel/validate', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      timeout: 300000
+    })
+  },
+
   import: (file, onProgress) => {
     const formData = new FormData()
     formData.append('file', file)
@@ -82,6 +93,10 @@ export const excelApi = {
 
   downloadTemplate: () => {
     return `${baseURL}/excel/template`
+  },
+
+  downloadValidationErrors: (validationId) => {
+    return `${baseURL}/excel/validate/errors/${validationId}`
   },
 
   exportErrors: (batchNo) => {

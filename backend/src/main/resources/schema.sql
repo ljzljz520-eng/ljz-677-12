@@ -17,13 +17,17 @@ CREATE TABLE IF NOT EXISTS `sys_user` (
 -- Excel数据表
 CREATE TABLE IF NOT EXISTS `excel_data` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    `data_code` VARCHAR(50) NOT NULL COMMENT '数据编号',
+    `medical_no` VARCHAR(50) COMMENT '医保编号',
     `name` VARCHAR(50) NOT NULL COMMENT '姓名',
+    `item_code` VARCHAR(50) COMMENT '项目编码',
+    `amount` DECIMAL(15,2) COMMENT '金额',
+    `visit_date` DATE COMMENT '就诊日期',
+    `org_code` VARCHAR(50) COMMENT '机构编码',
     `id_card` VARCHAR(20) COMMENT '身份证号',
     `phone` VARCHAR(20) COMMENT '手机号',
-    `amount` DECIMAL(15,2) COMMENT '金额',
-    `address` VARCHAR(200) COMMENT '地址',
     `remark` VARCHAR(500) COMMENT '备注',
+    `data_code` VARCHAR(50) COMMENT '数据编号（旧版字段，兼容历史数据）',
+    `address` VARCHAR(200) COMMENT '地址（旧版字段，兼容历史数据）',
     `batch_no` VARCHAR(50) NOT NULL COMMENT '导入批次号',
     `report_status` TINYINT DEFAULT 0 COMMENT '上报状态：0-待上报 1-已上报 2-上报失败',
     `report_message` VARCHAR(500) COMMENT '上报结果信息',
@@ -34,7 +38,7 @@ CREATE TABLE IF NOT EXISTS `excel_data` (
     PRIMARY KEY (`id`),
     INDEX `idx_batch_no` (`batch_no`),
     INDEX `idx_report_status` (`report_status`),
-    INDEX `idx_data_code` (`data_code`)
+    INDEX `idx_medical_no` (`medical_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Excel数据表';
 
 -- 导入记录表

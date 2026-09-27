@@ -72,18 +72,20 @@ public class ExcelDataListener implements ReadListener<ExcelDataDTO> {
         data.setRowIndex(rowIndex);
 
         // 数据校验
-        String errorMsg = ValidationUtils.validate(data);
-        if (errorMsg != null) {
-            data.setErrorMsg(errorMsg);
+        ValidationUtils.ValidationResult validationResult = ValidationUtils.validate(data);
+        if (validationResult.hasErrors()) {
+            data.setErrorMsg(validationResult.getErrorMsg());
             errorList.add(data);
             failCount++;
-            logger.warn("第{}行数据校验失败: {}", rowIndex, errorMsg);
+            logger.warn("第{}行数据校验失败: {}", rowIndex, validationResult.getErrorMsg());
             return;
         }
 
         // 转换为实体
         ExcelData entity = new ExcelData();
-        BeanUtil.copyProperties(data, entity);
+        BeanUtil.copyProperties(data, entity, "amount", "visitDate");
+        entity.setAmount(validationResult.getAmount());
+        entity.setVisitDate(validationResult.getVisitDate());
         entity.setBatchNo(batchNo);
         entity.setReportStatus(0);
 

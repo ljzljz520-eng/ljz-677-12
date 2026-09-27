@@ -48,6 +48,7 @@ public class ReportResultDTO {
     @Builder
     public static class ReportErrorItem {
         private Long id;
+        private String medicalNo;
         private String dataCode;
         private String name;
         private String errorMsg;
