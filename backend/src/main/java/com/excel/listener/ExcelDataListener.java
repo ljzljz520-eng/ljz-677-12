@@ -18,6 +18,9 @@ import java.util.List;
 /**
  * EasyExcel 数据监听器
  * 使用SAX模式逐行解析，避免OOM
+ * 支持两种模式：
+ * 1. 仅校验模式（validateOnly=true）：只做导入前字段校验，不写入数据库
+ * 2. 入库模式（validateOnly=false）：校验通过后批量入库
  */
 public class ExcelDataListener implements ReadListener<ExcelDataDTO> {
 
@@ -27,6 +30,11 @@ public class ExcelDataListener implements ReadListener<ExcelDataDTO> {
      * 每隔1000条存储数据库，然后清理list，方便内存回收
      */
     private static final int BATCH_COUNT = 1000;
+
+    /**
+     * 错误明细最大收集条数，防止错误过多导致内存与存储超限（失败计数不受影响）
+     */
+    private static final int MAX_ERROR_DETAIL = 10000;
 
     /**
      * 缓存的数据
@@ -60,9 +68,15 @@ public class ExcelDataListener implements ReadListener<ExcelDataDTO> {
     private final ExcelDataMapper excelDataMapper;
     private final String batchNo;
 
-    public ExcelDataListener(ExcelDataMapper excelDataMapper, String batchNo) {
+    /**
+     * 是否仅校验模式：true-只校验不入库，false-校验并入库
+     */
+    private final boolean validateOnly;
+
+    public ExcelDataListener(ExcelDataMapper excelDataMapper, String batchNo, boolean validateOnly) {
         this.excelDataMapper = excelDataMapper;
         this.batchNo = batchNo;
+        this.validateOnly = validateOnly;
     }
 
     @Override
@@ -71,19 +85,28 @@ public class ExcelDataListener implements ReadListener<ExcelDataDTO> {
         Integer rowIndex = context.readRowHolder().getRowIndex() + 1;
         data.setRowIndex(rowIndex);
 
-        // 数据校验
+        // 导入前字段校验：必填项存在性 + 金额/日期格式
         String errorMsg = ValidationUtils.validate(data);
         if (errorMsg != null) {
             data.setErrorMsg(errorMsg);
-            errorList.add(data);
+            if (errorList.size() < MAX_ERROR_DETAIL) {
+                errorList.add(data);
+            }
             failCount++;
             logger.warn("第{}行数据校验失败: {}", rowIndex, errorMsg);
             return;
         }
 
-        // 转换为实体
+        // 仅校验模式不写入数据库
+        if (validateOnly) {
+            return;
+        }
+
+        // 转换为实体（此时金额、日期已通过格式校验，可安全解析）
         ExcelData entity = new ExcelData();
-        BeanUtil.copyProperties(data, entity);
+        BeanUtil.copyProperties(data, entity, "amount", "visitDate");
+        entity.setAmount(ValidationUtils.parseAmount(data.getAmount()));
+        entity.setVisitDate(ValidationUtils.parseVisitDate(data.getVisitDate()));
         entity.setBatchNo(batchNo);
         entity.setReportStatus(0);
 
@@ -128,7 +151,9 @@ public class ExcelDataListener implements ReadListener<ExcelDataDTO> {
                     ExcelDataDTO errorDto = new ExcelDataDTO();
                     BeanUtil.copyProperties(data, errorDto);
                     errorDto.setErrorMsg("数据库保存失败: " + ex.getMessage());
-                    errorList.add(errorDto);
+                    if (errorList.size() < MAX_ERROR_DETAIL) {
+                        errorList.add(errorDto);
+                    }
                 }
             }
         }

@@ -3,7 +3,7 @@
     <!-- 页面标题 -->
     <div class="card">
       <h1 class="text-2xl font-bold text-gray-800 mb-2">导入记录</h1>
-      <p class="text-gray-500">查看历史导入记录，管理数据上报</p>
+      <p class="text-gray-500">查看历史导入记录，管理数据上送</p>
     </div>
 
     <!-- 记录列表 -->
@@ -48,10 +48,16 @@
             {{ formatTime(row.createTime) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="210" fixed="right">
           <template #default="{ row }">
             <div class="flex space-x-2">
-              <el-button type="primary" link size="small" @click="viewDetail(row)">
+              <el-button
+                v-if="row.successCount > 0"
+                type="primary"
+                link
+                size="small"
+                @click="viewDetail(row)"
+              >
                 详情
               </el-button>
               <el-button
@@ -61,7 +67,16 @@
                 size="small"
                 @click="reportData(row)"
               >
-                上报
+                上送
+              </el-button>
+              <el-button
+                v-if="row.status === 2 && row.failCount > 0"
+                type="danger"
+                link
+                size="small"
+                @click="downloadErrorRows(row)"
+              >
+                错误行
               </el-button>
             </div>
           </template>
@@ -82,10 +97,10 @@
       </div>
     </div>
 
-    <!-- 上报结果弹窗 -->
+    <!-- 上送结果弹窗 -->
     <el-dialog
       v-model="reportDialogVisible"
-      title="数据上报结果"
+      title="数据上送结果"
       width="600px"
       :close-on-click-modal="false"
     >
@@ -94,7 +109,7 @@
         <div class="grid grid-cols-3 gap-4 mb-6">
           <div class="bg-blue-50 rounded-lg p-4 text-center">
             <p class="text-2xl font-bold text-blue-600">{{ reportResult.totalCount }}</p>
-            <p class="text-gray-500 text-sm">上报总数</p>
+            <p class="text-gray-500 text-sm">上送总数</p>
           </div>
           <div class="bg-green-50 rounded-lg p-4 text-center">
             <p class="text-2xl font-bold text-green-600">{{ reportResult.successCount }}</p>
@@ -109,7 +124,7 @@
         <!-- 错误列表 -->
         <div v-if="reportResult.errorList && reportResult.errorList.length > 0">
           <div class="flex items-center justify-between mb-3">
-            <h4 class="font-medium text-gray-700">上报失败数据</h4>
+            <h4 class="font-medium text-gray-700">上送失败数据</h4>
             <el-button type="primary" link size="small" @click="exportErrors">
               导出失败数据
             </el-button>
@@ -127,7 +142,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            部分数据上报失败，您可以修正数据后重新上报
+            部分数据上送失败，您可以修正数据后重新上送
           </p>
         </div>
       </div>
@@ -141,7 +156,7 @@
             @click="retryReport"
             :loading="retrying"
           >
-            重新上报失败数据
+            重新上送失败数据
           </el-button>
         </div>
       </template>
@@ -173,12 +188,12 @@ const currentBatchNo = ref('')
 const retrying = ref(false)
 
 const getStatusType = (status) => {
-  const types = { 0: 'info', 1: 'success', 2: 'warning' }
+  const types = { 0: 'info', 1: 'success', 2: 'danger' }
   return types[status] || 'info'
 }
 
 const getStatusText = (status) => {
-  const texts = { 0: '处理中', 1: '完成', 2: '部分失败' }
+  const texts = { 0: '处理中', 1: '完成', 2: '失败' }
   return texts[status] || '未知'
 }
 
@@ -220,8 +235,8 @@ const viewDetail = (row) => {
 const reportData = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `确定要将批次 ${row.batchNo} 的数据上报到国家平台吗？`,
-      '确认上报',
+      `确定要将批次 ${row.batchNo} 的数据上送到国家平台吗？`,
+      '确认上送',
       {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
@@ -230,16 +245,16 @@ const reportData = async (row) => {
     )
 
     currentBatchNo.value = row.batchNo
-    ElMessage.info('正在上报数据，请稍候...')
+    ElMessage.info('正在上送数据，请稍候...')
 
     const res = await excelApi.reportData(row.batchNo)
     reportResult.value = res.data
     reportDialogVisible.value = true
 
     if (res.data.failCount === 0) {
-      ElMessage.success('数据上报成功')
+      ElMessage.success('数据上送成功')
     } else {
-      ElMessage.warning(`上报完成，${res.data.failCount}条数据上报失败`)
+      ElMessage.warning(`上送完成，${res.data.failCount}条数据上送失败`)
     }
 
     fetchRecords()
@@ -257,9 +272,9 @@ const retryReport = async () => {
     reportResult.value = res.data
 
     if (res.data.failCount === 0) {
-      ElMessage.success('重新上报成功')
+      ElMessage.success('重新上送成功')
     } else {
-      ElMessage.warning(`重新上报完成，仍有${res.data.failCount}条数据失败`)
+      ElMessage.warning(`重新上送完成，仍有${res.data.failCount}条数据失败`)
     }
 
     fetchRecords()
@@ -273,6 +288,12 @@ const retryReport = async () => {
 const exportErrors = () => {
   const token = userStore.token
   const url = excelApi.exportErrors(currentBatchNo.value)
+  window.open(`${url}?token=${token}`, '_blank')
+}
+
+const downloadErrorRows = (row) => {
+  const token = userStore.token
+  const url = excelApi.exportValidationErrors(row.batchNo)
   window.open(`${url}?token=${token}`, '_blank')
 }
 

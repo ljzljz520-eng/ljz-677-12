@@ -19,7 +19,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
           </svg>
-          上报数据
+          上送数据
         </el-button>
       </div>
     </div>
@@ -47,7 +47,7 @@
         </div>
         <div>
           <p class="text-2xl font-bold text-gray-800">{{ stats.pending }}</p>
-          <p class="text-gray-500 text-sm">待上报</p>
+          <p class="text-gray-500 text-sm">待上送</p>
         </div>
       </div>
       <div class="card flex items-center">
@@ -58,7 +58,7 @@
         </div>
         <div>
           <p class="text-2xl font-bold text-gray-800">{{ stats.success }}</p>
-          <p class="text-gray-500 text-sm">已上报</p>
+          <p class="text-gray-500 text-sm">已上送</p>
         </div>
       </div>
       <div class="card flex items-center">
@@ -69,7 +69,7 @@
         </div>
         <div>
           <p class="text-2xl font-bold text-gray-800">{{ stats.failed }}</p>
-          <p class="text-gray-500 text-sm">上报失败</p>
+          <p class="text-gray-500 text-sm">上送失败</p>
         </div>
       </div>
     </div>
@@ -80,39 +80,42 @@
         <h2 class="text-lg font-semibold text-gray-700">数据列表</h2>
         <el-select v-model="statusFilter" placeholder="状态筛选" clearable style="width: 140px" @change="fetchData">
           <el-option label="全部" value="" />
-          <el-option label="待上报" :value="0" />
-          <el-option label="已上报" :value="1" />
-          <el-option label="上报失败" :value="2" />
+          <el-option label="待上送" :value="0" />
+          <el-option label="已上送" :value="1" />
+          <el-option label="上送失败" :value="2" />
         </el-select>
       </div>
 
       <el-table v-loading="loading" :data="dataList" stripe style="width: 100%">
-        <el-table-column prop="dataCode" label="数据编号" width="140" />
-        <el-table-column prop="name" label="姓名" width="100" />
-        <el-table-column prop="idCard" label="身份证号" width="180">
-          <template #default="{ row }">
-            {{ maskIdCard(row.idCard) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="phone" label="手机号" width="130">
-          <template #default="{ row }">
-            {{ maskPhone(row.phone) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="amount" label="金额" width="120" align="right">
+        <el-table-column prop="insuranceNo" label="医保编号" width="130" show-overflow-tooltip />
+        <el-table-column prop="name" label="姓名" width="90" />
+        <el-table-column prop="itemCode" label="项目编码" width="110" show-overflow-tooltip />
+        <el-table-column prop="amount" label="金额" width="110" align="right">
           <template #default="{ row }">
             <span class="font-medium">{{ formatAmount(row.amount) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="address" label="地址" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="reportStatus" label="上报状态" width="100" align="center">
+        <el-table-column prop="visitDate" label="就诊日期" width="110" />
+        <el-table-column prop="orgCode" label="机构编码" width="130" show-overflow-tooltip />
+        <el-table-column prop="idCard" label="身份证号" width="170">
+          <template #default="{ row }">
+            {{ maskIdCard(row.idCard) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="phone" label="手机号" width="120">
+          <template #default="{ row }">
+            {{ maskPhone(row.phone) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="address" label="地址" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="reportStatus" label="上送状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getReportStatusType(row.reportStatus)" size="small">
               {{ getReportStatusText(row.reportStatus) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="reportMessage" label="上报信息" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="reportMessage" label="上送信息" min-width="180" show-overflow-tooltip />
       </el-table>
 
       <!-- 分页 -->
@@ -129,10 +132,10 @@
       </div>
     </div>
 
-    <!-- 上报结果弹窗 -->
+    <!-- 上送结果弹窗 -->
     <el-dialog
       v-model="reportDialogVisible"
-      title="数据上报结果"
+      title="数据上送结果"
       width="600px"
       :close-on-click-modal="false"
     >
@@ -140,7 +143,7 @@
         <div class="grid grid-cols-3 gap-4 mb-6">
           <div class="bg-blue-50 rounded-lg p-4 text-center">
             <p class="text-2xl font-bold text-blue-600">{{ reportResult.totalCount }}</p>
-            <p class="text-gray-500 text-sm">上报总数</p>
+            <p class="text-gray-500 text-sm">上送总数</p>
           </div>
           <div class="bg-green-50 rounded-lg p-4 text-center">
             <p class="text-2xl font-bold text-green-600">{{ reportResult.successCount }}</p>
@@ -153,7 +156,7 @@
         </div>
 
         <div v-if="reportResult.errorList && reportResult.errorList.length > 0">
-          <h4 class="font-medium text-gray-700 mb-3">上报失败数据</h4>
+          <h4 class="font-medium text-gray-700 mb-3">上送失败数据</h4>
           <el-table :data="reportResult.errorList" stripe max-height="250" size="small">
             <el-table-column prop="dataCode" label="数据编号" width="120" />
             <el-table-column prop="name" label="姓名" width="100" />
@@ -205,7 +208,7 @@ const getReportStatusType = (status) => {
 }
 
 const getReportStatusText = (status) => {
-  const texts = { 0: '待上报', 1: '已上报', 2: '上报失败' }
+  const texts = { 0: '待上送', 1: '已上送', 2: '上送失败' }
   return texts[status] || '未知'
 }
 
@@ -272,8 +275,8 @@ const goBack = () => {
 const reportData = async () => {
   try {
     await ElMessageBox.confirm(
-      '确定要将待上报的数据上报到国家平台吗？',
-      '确认上报',
+      '确定要将待上送的数据上送到国家平台吗？',
+      '确认上送',
       {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
@@ -282,16 +285,16 @@ const reportData = async () => {
     )
 
     reporting.value = true
-    ElMessage.info('正在上报数据，请稍候...')
+    ElMessage.info('正在上送数据，请稍候...')
 
     const res = await excelApi.reportData(batchNo.value)
     reportResult.value = res.data
     reportDialogVisible.value = true
 
     if (res.data.failCount === 0) {
-      ElMessage.success('数据上报成功')
+      ElMessage.success('数据上送成功')
     } else {
-      ElMessage.warning(`上报完成，${res.data.failCount}条数据上报失败`)
+      ElMessage.warning(`上送完成，${res.data.failCount}条数据上送失败`)
     }
 
     fetchData()

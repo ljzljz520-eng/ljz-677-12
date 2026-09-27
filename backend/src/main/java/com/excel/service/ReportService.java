@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.excel.dto.ReportResultDTO;
 import com.excel.entity.ExcelData;
 import com.excel.mapper.ExcelDataMapper;
+import com.excel.utils.ValidationUtils;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +54,22 @@ public class ReportService {
                     .message("没有待上报的数据")
                     .errorList(new ArrayList<>())
                     .build();
+        }
+
+        // 上送前复检：存在未通过字段校验的数据时，整批不能进入上送步骤
+        List<String> invalidList = new ArrayList<>();
+        for (ExcelData data : pendingList) {
+            String error = ValidationUtils.validateEntity(data);
+            if (error != null) {
+                invalidList.add("ID=" + data.getId() + "（" + data.getName() + "）: " + error);
+            }
+        }
+        if (!invalidList.isEmpty()) {
+            String detail = invalidList.size() <= 5
+                    ? String.join("；", invalidList)
+                    : String.join("；", invalidList.subList(0, 5)) + " 等";
+            logger.warn("批次{}存在{}条数据未通过字段校验，禁止上送", batchNo, invalidList.size());
+            throw new RuntimeException(String.format("存在%d条数据未通过字段校验，不能上送：%s", invalidList.size(), detail));
         }
 
         int totalCount = pendingList.size();

@@ -5,7 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("import_record")
+@TableName(value = "import_record", autoResultMap = true)
 public class ImportRecord {
 
     @TableId(type = IdType.AUTO)

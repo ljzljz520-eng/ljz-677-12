@@ -3,6 +3,7 @@ package com.excel.controller;
 import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.excel.dto.ApiResponse;
+import com.excel.dto.ErrorExportDTO;
 import com.excel.dto.ExcelDataDTO;
 import com.excel.dto.ImportResultDTO;
 import com.excel.dto.ReportResultDTO;
@@ -16,12 +17,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -39,7 +40,7 @@ public class ExcelController {
     private final ReportService reportService;
 
     @PostMapping("/import")
-    @Operation(summary = "导入Excel", description = "上传Excel文件进行数据导入")
+    @Operation(summary = "导入Excel", description = "上传Excel文件，先进行导入前字段校验，校验通过才入库")
     public ApiResponse<ImportResultDTO> importExcel(
             @RequestParam("file") MultipartFile file,
             Authentication authentication) {
@@ -82,7 +83,7 @@ public class ExcelController {
     }
 
     @PostMapping("/report/{batchNo}")
-    @Operation(summary = "上报数据", description = "将指定批次数据上报到国家平台")
+    @Operation(summary = "上报数据", description = "将指定批次数据上报到国家平台，上报前会复检字段校验")
     public ApiResponse<ReportResultDTO> reportData(@PathVariable String batchNo) {
         try {
             ReportResultDTO result = reportService.reportToNationalPlatform(batchNo);
@@ -127,11 +128,15 @@ public class ExcelController {
         // 生成模板数据
         List<ExcelDataDTO> templateData = new ArrayList<>();
         ExcelDataDTO example = new ExcelDataDTO();
-        example.setDataCode("DATA001");
+        example.setInsuranceNo("YB123456789");
         example.setName("张三");
+        example.setItemCode("XM001");
+        example.setAmount("1000.00");
+        example.setVisitDate("2026-09-01");
+        example.setOrgCode("H1101010001");
+        example.setDataCode("DATA001");
         example.setIdCard("110101199001011234");
         example.setPhone("13800138000");
-        example.setAmount(new BigDecimal("1000.00"));
         example.setAddress("北京市朝阳区xxx街道");
         example.setRemark("示例数据");
         templateData.add(example);
@@ -139,6 +144,49 @@ public class ExcelController {
         EasyExcel.write(response.getOutputStream(), ExcelDataDTO.class)
                 .sheet("数据导入模板")
                 .doWrite(templateData);
+    }
+
+    @GetMapping("/export/validation-errors/{batchNo}")
+    @Operation(summary = "下载校验错误行", description = "下载导入校验未通过的错误行Excel，修正后可重新上传")
+    public void exportValidationErrors(@PathVariable String batchNo, HttpServletResponse response) throws IOException {
+        List<ExcelDataDTO> errorRows = excelImportService.getValidationErrorRows(batchNo);
+
+        if (errorRows.isEmpty()) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.getWriter().write("{\"code\":404,\"message\":\"该批次没有可下载的校验错误行\"}");
+            return;
+        }
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+        String fileName = URLEncoder.encode("校验错误行_" + batchNo, StandardCharsets.UTF_8)
+                .replaceAll("\\+", "%20");
+        response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
+
+        List<ErrorExportDTO> exportList = new ArrayList<>();
+        for (ExcelDataDTO row : errorRows) {
+            ErrorExportDTO dto = new ErrorExportDTO();
+            dto.setInsuranceNo(row.getInsuranceNo());
+            dto.setName(row.getName());
+            dto.setItemCode(row.getItemCode());
+            dto.setAmount(row.getAmount());
+            dto.setVisitDate(row.getVisitDate());
+            dto.setOrgCode(row.getOrgCode());
+            dto.setDataCode(row.getDataCode());
+            dto.setIdCard(row.getIdCard());
+            dto.setPhone(row.getPhone());
+            dto.setAddress(row.getAddress());
+            dto.setRemark(row.getRemark());
+            dto.setRowIndex(row.getRowIndex());
+            dto.setErrorMsg(row.getErrorMsg());
+            exportList.add(dto);
+        }
+
+        EasyExcel.write(response.getOutputStream(), ErrorExportDTO.class)
+                .sheet("校验错误行")
+                .doWrite(exportList);
     }
 
     @GetMapping("/export/errors/{batchNo}")
@@ -152,22 +200,26 @@ public class ExcelController {
                 .replaceAll("\\+", "%20");
         response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
 
-        // 转换为DTO
-        List<ExcelDataDTO> exportList = new ArrayList<>();
+        // 转换为导出DTO
+        List<ErrorExportDTO> exportList = new ArrayList<>();
         for (ExcelData data : failedList) {
-            ExcelDataDTO dto = new ExcelDataDTO();
-            dto.setDataCode(data.getDataCode());
+            ErrorExportDTO dto = new ErrorExportDTO();
+            dto.setInsuranceNo(data.getInsuranceNo());
             dto.setName(data.getName());
+            dto.setItemCode(data.getItemCode());
+            dto.setAmount(data.getAmount() == null ? null : data.getAmount().toPlainString());
+            dto.setVisitDate(data.getVisitDate() == null ? null : data.getVisitDate().toString());
+            dto.setOrgCode(data.getOrgCode());
+            dto.setDataCode(data.getDataCode());
             dto.setIdCard(data.getIdCard());
             dto.setPhone(data.getPhone());
-            dto.setAmount(data.getAmount());
             dto.setAddress(data.getAddress());
             dto.setRemark(data.getRemark());
             dto.setErrorMsg(data.getReportMessage());
             exportList.add(dto);
         }
 
-        EasyExcel.write(response.getOutputStream(), ExcelDataDTO.class)
+        EasyExcel.write(response.getOutputStream(), ErrorExportDTO.class)
                 .sheet("上报失败数据")
                 .doWrite(exportList);
     }

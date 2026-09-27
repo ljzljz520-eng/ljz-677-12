@@ -86,6 +86,10 @@ export const excelApi = {
 
   exportErrors: (batchNo) => {
     return `${baseURL}/excel/export/errors/${batchNo}`
+  },
+
+  exportValidationErrors: (batchNo) => {
+    return `${baseURL}/excel/export/validation-errors/${batchNo}`
   }
 }
 
